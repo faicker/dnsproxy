@@ -141,6 +141,12 @@ type Proxy struct {
 	// them.
 	quicTransports []*quic.Transport
 
+	// httpListener are the listened HTTP connections.
+	httpListen []net.Listener
+
+	// httpServer serves queries received over HTTP.
+	httpServer *http.Server
+
 	// httpsListen are the listened HTTPS connections.
 	httpsListen []net.Listener
 

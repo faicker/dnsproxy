@@ -22,10 +22,10 @@ import (
 	"golang.org/x/net/http2"
 )
 
-// listenHTTP creates instances of TLS listeners that will be used to run an
+// listenHTTPS creates instances of TLS listeners that will be used to run an
 // H1/H2 server.  Returns the address the listener actually listens to (useful
 // in the case if port 0 is specified).
-func (p *Proxy) listenHTTP(addr *net.TCPAddr) (laddr *net.TCPAddr, err error) {
+func (p *Proxy) listenHTTPS(addr *net.TCPAddr) (laddr *net.TCPAddr, err error) {
 	tcpListen, err := net.ListenTCP(bootstrap.NetworkTCP, addr)
 	if err != nil {
 		return nil, fmt.Errorf("tcp listener: %w", err)
@@ -38,6 +38,21 @@ func (p *Proxy) listenHTTP(addr *net.TCPAddr) (laddr *net.TCPAddr, err error) {
 
 	tlsListen := tls.NewListener(tcpListen, tlsConfig)
 	p.httpsListen = append(p.httpsListen, tlsListen)
+
+	return tcpListen.Addr().(*net.TCPAddr), nil
+}
+
+// listenHTTP creates instances of TCP listeners that will be used to run an
+// H1 server.  Returns the address the listener actually listens to (useful
+// in the case if port 0 is specified).
+func (p *Proxy) listenHTTP(addr *net.TCPAddr) (laddr *net.TCPAddr, err error) {
+	tcpListen, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("tcp listener: %w", err)
+	}
+	p.logger.Info("Listening to http://%s", tcpListen.Addr())
+
+	p.httpListen = append(p.httpListen, tcpListen)
 
 	return tcpListen.Addr().(*net.TCPAddr), nil
 }
@@ -76,7 +91,7 @@ func (p *Proxy) createHTTPSListeners() (err error) {
 	for _, addr := range p.HTTPSListenAddr {
 		p.logger.Info("creating an https server")
 
-		tcpAddr, lErr := p.listenHTTP(addr)
+		tcpAddr, lErr := p.listenHTTPS(addr)
 		if lErr != nil {
 			return fmt.Errorf("failed to start HTTPS server on %s: %w", addr, lErr)
 		}
@@ -89,6 +104,26 @@ func (p *Proxy) createHTTPSListeners() (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to start HTTP/3 server on %s: %w", udpAddr, err)
 			}
+		}
+	}
+
+	return nil
+}
+
+// createHTTPListeners creates the cleartext HTTP listener for DNS-over-HTTPS (behind a proxy doing TLS termination).
+func (p *Proxy) createHTTPListeners() (err error) {
+	p.httpServer = &http.Server{
+		Handler:           p,
+		ReadHeaderTimeout: defaultTimeout,
+		WriteTimeout:      defaultTimeout,
+	}
+
+	for _, addr := range p.HTTPListenAddr {
+		p.logger.Info("Creating an HTTP server")
+
+		_, err := p.listenHTTP(addr)
+		if err != nil {
+			return fmt.Errorf("failed to start HTTP server on %s: %w", addr, err)
 		}
 	}
 

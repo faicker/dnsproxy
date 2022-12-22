@@ -27,6 +27,11 @@ func (p *Proxy) configureListeners(ctx context.Context) (err error) {
 		return err
 	}
 
+	err = p.createHTTPListeners()
+	if err != nil {
+		return err
+	}
+
 	err = p.createTLSListeners()
 	if err != nil {
 		return err
@@ -62,6 +67,10 @@ func (p *Proxy) startListeners() {
 
 	for _, l := range p.tlsListen {
 		go p.tcpPacketLoop(l, ProtoTLS, p.requestsSema)
+	}
+
+	for _, l := range p.httpListen {
+		go func(l net.Listener) { _ = p.httpServer.Serve(l) }(l)
 	}
 
 	for _, l := range p.httpsListen {

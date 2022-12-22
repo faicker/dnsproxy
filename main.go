@@ -75,6 +75,9 @@ type Options struct {
 	// ListenPorts are the ports server listens on.
 	ListenPorts []int `yaml:"listen-ports" short:"p" long:"port" description:"Listening ports. Zero value disables TCP and UDP listeners"`
 
+	// HTTP listen ports
+	HTTPListenPorts []int `yaml:"http-port" short:"i" long:"http-port" description:"Listening ports for DNS-over-HTTP"`
+
 	// HTTPSListenPorts are the ports server listens on for DNS-over-HTTPS.
 	HTTPSListenPorts []int `yaml:"https-port" short:"s" long:"https-port" description:"Listening ports for DNS-over-HTTPS"`
 
@@ -723,6 +726,11 @@ func initTLSListenAddrs(config *proxy.Config, options *Options, addrs []netip.Ad
 		for _, port := range options.TLSListenPorts {
 			a := net.TCPAddrFromAddrPort(netip.AddrPortFrom(ip, uint16(port)))
 			config.TLSListenAddr = append(config.TLSListenAddr, a)
+		}
+
+		for _, port := range options.HTTPListenPorts {
+			a := net.TCPAddrFromAddrPort(netip.AddrPortFrom(ip, uint16(port)))
+			config.HTTPListenAddr = append(config.HTTPSListenAddr, a)
 		}
 
 		for _, port := range options.HTTPSListenPorts {
